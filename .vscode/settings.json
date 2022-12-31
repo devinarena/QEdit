@@ -1,6 +1,3 @@
 {
-    "files.associations": {
-        "qstring.h": "c",
-        "stdbool.h": "c"
-    }
+
 }

@@ -79,12 +79,17 @@ int main(int argc, const char* argv[]) {
   if (source == NULL) {
     return 1;
   }
-  
-  qedit_window* window = new_qedit_window();
+
+  qedit_window* window = new_qedit_window(argv[1]);
   window->lines = textToLines(source);
+
   free((void*)source);
-  
+
   rerender(window);
+  set_cursor_pos(window);
+
+  start_listener(window);
+
   destroy_qedit_window(window);
 
   return 0;

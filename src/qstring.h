@@ -8,5 +8,6 @@ typedef struct {
 } qstring;
 
 qstring* qstring_new(const char* str);
+void qstring_destroy(qstring* str);
 
 #endif

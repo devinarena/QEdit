@@ -3,13 +3,15 @@
 #include <string.h>
 
 #include "dyn_list.h"
+#include "qstring.h"
 
-dyn_list* new_dyn_list(int mem_alloc) {
+dyn_list* new_dyn_list(int mem_alloc, void (*free_object)(void*)) {
   dyn_list* list = malloc(sizeof(dyn_list));
   list->data = malloc(sizeof(void*) * 8);
   list->size = 0;
   list->capacity = 8;
   list->mem_alloc = mem_alloc;
+  list->free_object = free_object;
   return list;
 }
 
@@ -32,7 +34,7 @@ void dyn_list_remove(dyn_list* list, int index) {
     return;
   }
   if (list->mem_alloc)
-    free(list->data[index]);
+    free_object(list, index);
   for (int i = index; i < list->size - 1; i++) {
     list->data[i] = list->data[i + 1];
   }
@@ -42,10 +44,18 @@ void dyn_list_remove(dyn_list* list, int index) {
 void dyn_list_clear(dyn_list* list) {
   if (list->mem_alloc) {
     for (size_t i = 0; i < list->size; i++) {
-      free(list->data[i]);
+      free_object(list, i);
     }
   }
   list->size = 0;
+}
+
+void free_object(dyn_list* list, int index) {
+  if (list->special_obj == QSTRING) {
+    qstring_destroy(list->data[index]);
+  } else {
+    free(list->data[index]);
+  }
 }
 
 void* dyn_list_get(dyn_list* list, int index) {
@@ -61,6 +71,6 @@ void dyn_list_set(dyn_list* list, int index, void* data) {
   }
 
   if (list->mem_alloc && index < list->size)
-    free(list->data[index]);
+    free(list, index);
   list->data[index] = data;
 }
