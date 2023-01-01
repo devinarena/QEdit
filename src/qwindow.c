@@ -11,6 +11,9 @@
 #define INFO_LINES 1
 #define EXTRA_LINE_CHARS 2
 
+// track last key
+int last_key = 0;
+
 qedit_window* new_qedit_window(const char* filename) {
   qedit_window* window = malloc(sizeof(qedit_window));
   window->cx = 0;
@@ -61,8 +64,8 @@ void render_info(qedit_window* window) {
   set_cursor_pos(window);
 
   char info[200];
-  snprintf(info, sizeof(info), "FILE: %s --- POS: (%d, %d)", window->filename,
-           window->line, window->col);
+  snprintf(info, sizeof(info), "FILE: %s --- POS: (%d, %d) --- PREV KS: %d",
+           window->filename, window->line, window->col, last_key);
 
   printf("%-*s", window->width, info);
 
@@ -71,15 +74,36 @@ void render_info(qedit_window* window) {
   set_cursor_pos(window);
 }
 
-static void move_cursor_up(qedit_window* window, qstring** line) {
+static qstring* get_current_line(qedit_window* window) {
+  return dyn_list_get(window->lines, window->line);
+}
+
+static void cursor_right(qedit_window* window) {
+  window->cx++;
+  if (window->cx >= window->width) {
+    window->cx = 0;
+    window->cy++;
+  }
+}
+
+static void cursor_left(qedit_window* window) {
+  if (window->cx > 0) {
+    window->cx--;
+  } else {
+    window->cx = window->width - 1;
+    window->cy--;
+  }
+}
+
+static void move_cursor_up(qedit_window* window) {
   if (window->col >= window->width) {
     window->col -= window->width;
     window->cy--;
   } else {
     if (window->line > 0) {
       window->line--;
-      *line = dyn_list_get(window->lines, window->line);
-      window->cy -= (int)((*line)->length / window->width) + 1;
+      int length = get_current_line(window)->length;
+      window->cy -= (int)(length / window->width) + 1;
       window->col = 0;
       window->cx = 0;
     }
@@ -88,15 +112,17 @@ static void move_cursor_up(qedit_window* window, qstring** line) {
   render_info(window);
 }
 
-static void move_cursor_down(qedit_window* window, qstring** line) {
-  if (window->col + window->width < (*line)->length - 1) {
+static void move_cursor_down(qedit_window* window) {
+  qstring* line = get_current_line(window);
+
+  if (window->col + window->width < line->length - 1) {
     window->cy++;
     window->col += window->width;
   } else {
     if (window->line < window->lines->size - 1) {
-      window->cy += (int)(((*line)->length - window->col) / window->width) + 1;
+      window->cy +=
+          (int)((line->length - window->col + 1) / window->width) + 1;
       window->line++;
-      *line = dyn_list_get(window->lines, window->line);
       window->col = 0;
       window->cx = 0;
     }
@@ -105,21 +131,17 @@ static void move_cursor_down(qedit_window* window, qstring** line) {
   render_info(window);
 }
 
-static void move_cursor_left(qedit_window* window, qstring** line) {
+static void move_cursor_left(qedit_window* window) {
+  qstring* line = get_current_line(window);
+
   short padding = window->cy < window->lines->size ? EXTRA_LINE_CHARS : 0;
   if (window->col > 0) {
     window->col--;
-    if (window->cx > 0)
-      window->cx--;
-    else {
-      window->cy--;
-      window->cx = window->width - 1;
-    }
+    cursor_left(window);
   } else {
     if (window->line > 0) {
       window->line--;
-      *line = dyn_list_get(window->lines, window->line);
-      window->col = (*line)->length - padding;
+      window->col = get_current_line(window)->length - padding;
       window->cx = window->col % window->width;
       window->cy--;
     }
@@ -128,15 +150,16 @@ static void move_cursor_left(qedit_window* window, qstring** line) {
   render_info(window);
 }
 
-static void move_cursor_right(qedit_window* window, qstring** line) {
+static void move_cursor_right(qedit_window* window) {
+  qstring* line = get_current_line(window);
+
   short padding = window->cy < window->lines->size ? EXTRA_LINE_CHARS : 0;
-  if (window->col < (*line)->length - padding) {
+  if (window->col < line->length - padding) {
     window->col++;
-    window->cx++;
+    cursor_right(window);
   } else {
     if (window->line < window->lines->size - 1) {
       window->line++;
-      *line = dyn_list_get(window->lines, window->line);
       window->col = 0;
       window->cx = 0;
       window->cy++;
@@ -147,50 +170,88 @@ static void move_cursor_right(qedit_window* window, qstring** line) {
 }
 
 static void put_character(qedit_window* window, char c) {
-  qstring* line = dyn_list_get(window->lines, window->line);
+  qstring* line = get_current_line(window);
   qstring_insert(line, c, window->col);
   window->col++;
-  window->cx++;
+  cursor_right(window);
   putch(c);
   printf("%s", line->str + window->col);
   set_cursor_pos(window);
+  render_info(window);
+}
+
+static void backspace(qedit_window* window) {
+  qstring* line = get_current_line(window);
+
+  if (window->col > 0) {
+    qstring_delete(line, window->col - 1);
+    window->col--;
+    cursor_left(window);
+    set_cursor_pos(window);
+    printf("%s ", line->str + window->col - 1);
+    set_cursor_pos(window);
+    render_info(window);
+  } else {
+    if (window->line > 0) {
+      window->line--;
+      qstring* prev_line = get_current_line(window);
+      window->col = prev_line->length - EXTRA_LINE_CHARS;
+      window->cx = window->col % window->width;
+      window->cy--;
+      if (line->length != 0 && strcmp(line->str, "\r") != 0 &&
+          strcmp(line->str, "\r\n") != 0) {
+        qstring_concat(prev_line, line, 0);
+      }
+      dyn_list_remove(window->lines, window->line + 1);
+      rerender(window);
+    }
+  }
+}
+
+static void special_key(qedit_window* window, char c) {
+  switch (c) {
+    case 72: {  // UP
+      move_cursor_up(window);
+      break;
+    }
+    case 80: {  // DOWN
+      move_cursor_down(window);
+      break;
+    }
+    case 75: {  // LEFT
+      move_cursor_left(window);
+      break;
+    }
+    case 77: {  // RIGHT
+      move_cursor_right(window);
+      break;
+    }
+    case 71: {
+      rerender(window);
+      break;
+    }
+  }
 }
 
 void start_listener(qedit_window* window) {
   int running = 1;
-  qstring* line = dyn_list_get(window->lines, window->line);
   while (running) {
     if (kbhit()) {
       char c = _getch();
       if (c == 27) {
         running = 0;
       }
+      if (c == '\b') {
+        backspace(window);
+        continue;
+      }
       if (c == -32 || c == 224) {
         c = _getch();
-        switch (c) {
-          case 72: {  // UP
-            move_cursor_up(window, &line);
-            break;
-          }
-          case 80: {  // DOWN
-            move_cursor_down(window, &line);
-            break;
-          }
-          case 75: {  // LEFT
-            move_cursor_left(window, &line);
-            break;
-          }
-          case 77: {  // RIGHT
-            move_cursor_right(window, &line);
-            break;
-          }
-          case 71: {
-            rerender(window);
-            break;
-          }
-        }
+        last_key = c;
+        special_key(window, c);
       } else {
         if (isalnum(c)) {
+          last_key = c;
           put_character(window, c);
         }
       }

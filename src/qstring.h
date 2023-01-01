@@ -18,6 +18,9 @@ typedef struct {
 
 qstring* qstring_new(const char* str);
 void qstring_insert(qstring* str, char c, int index);
+void qstring_append(qstring* str, char c);
+void qstring_concat(qstring* str, qstring* other, int free_other);
+void qstring_delete(qstring* str, int index);
 void qstring_destroy(qstring* str);
 
 #endif
