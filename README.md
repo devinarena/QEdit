@@ -1,5 +1,6 @@
 # QEdit
 ### A terminal editor designed for simplicity.
+### Note: QEdit is very early in development and still lacks core functionality at this time.
 
 ## About
 QEdit is a simple, lightweight terminal editor written in C designed for making simple text edits. It currently does not have much support beyond basic text editing, but more features are planned.
@@ -20,18 +21,22 @@ Here are some basic keyboard strokes to remember for QEdit:
 ```
 ---------------------------------------------------------------------------
 | Key            | Function                                               |
+---------------------------------------------------------------------------
 | Left Arrow     | Move document cursor left                              |
 | Right Arrow    | Move document cursor right                             |
 | Up Arrow       | Move document cursor up                                |
 | Down Arrow     | Move document cursor down                              |
+---------------------------------------------------------------------------
 | Backspace      | Delete previous character                              |
 | Delete         | Delete current character                               |
 | Enter          | Place a \n character                                   |
 | Home           | Rerender the window                                    |
+---------------------------------------------------------------------------
 | CTRL+S         | Save the current file                                  |
 | CTRL+R         | Reload the current file (loses changes)                |
 | CTRL+Q         | Quit the current editor with saving                    |
-| CTRL+C         | Quit the current editor without saving                 |
+| CTRL+W         | Quit the current editor without saving                 |
+---------------------------------------------------------------------------
 | Any other key  | Text input (e.g. a-z, 0-9)                             |
 ---------------------------------------------------------------------------
 ```
