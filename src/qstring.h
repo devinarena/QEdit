@@ -17,6 +17,7 @@ typedef struct {
 } qstring;
 
 qstring* qstring_new(const char* str);
+void qstring_insert(qstring* str, char c, int index);
 void qstring_destroy(qstring* str);
 
 #endif

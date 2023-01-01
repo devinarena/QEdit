@@ -146,6 +146,16 @@ static void move_cursor_right(qedit_window* window, qstring** line) {
   render_info(window);
 }
 
+static void put_character(qedit_window* window, char c) {
+  qstring* line = dyn_list_get(window->lines, window->line);
+  qstring_insert(line, c, window->col);
+  window->col++;
+  window->cx++;
+  putch(c);
+  printf("%s", line->str + window->col);
+  set_cursor_pos(window);
+}
+
 void start_listener(qedit_window* window) {
   int running = 1;
   qstring* line = dyn_list_get(window->lines, window->line);
@@ -181,10 +191,7 @@ void start_listener(qedit_window* window) {
         }
       } else {
         if (isalnum(c)) {
-          putch(c);
-          window->cx++;
-          set_cursor_pos(window);
-          render_info(window);
+          put_character(window, c);
         }
       }
     }

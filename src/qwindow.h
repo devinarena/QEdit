@@ -9,6 +9,7 @@
 typedef struct {
     dyn_list* lines;
     const char* filename;
+    
     uint32_t line;
     uint32_t col;
     uint32_t scroll_y;
