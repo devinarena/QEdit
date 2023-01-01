@@ -1,5 +1,5 @@
 # QEdit
-## A terminal editor designed for simplicity.
+### A terminal editor designed for simplicity.
 
 ## About
 QEdit is a simple, lightweight terminal editor written in C designed for making simple text edits. It currently does not have much support beyond basic text editing, but more features are planned.
@@ -28,6 +28,10 @@ Here are some basic keyboard strokes to remember for QEdit:
 | Delete         | Delete current character                               |
 | Enter          | Place a \n character                                   |
 | Home           | Rerender the window                                    |
+| CTRL+S         | Save the current file                                  |
+| CTRL+R         | Reload the current file (loses changes)                |
+| CTRL+Q         | Quit the current editor with saving                    |
+| CTRL+C         | Quit the current editor without saving                 |
 | Any other key  | Text input (e.g. a-z, 0-9)                             |
 ---------------------------------------------------------------------------
 ```
