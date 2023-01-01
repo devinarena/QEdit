@@ -9,7 +9,6 @@
 #include "qwindow.h"
 
 #define INFO_LINES 1
-#define EXTRA_LINE_CHARS 2
 
 // track last key
 int last_key = 0;
@@ -51,6 +50,9 @@ void rerender(qedit_window* window) {
     }
     qstring* line = dyn_list_get(window->lines, col);
     printf("%s", line->str);
+    if (col < window->lines->size - 1) {
+      printf("\r\n");
+    }
   }
   render_info(window);
 }
@@ -115,13 +117,13 @@ static void move_cursor_up(qedit_window* window) {
 static void move_cursor_down(qedit_window* window) {
   qstring* line = get_current_line(window);
 
-  if (window->col + window->width < line->length - 1) {
+  if (window->col + window->width < line->length) {
     window->cy++;
     window->col += window->width;
   } else {
     if (window->line < window->lines->size - 1) {
-      window->cy +=
-          (int)((line->length - window->col + 1) / window->width) + 1;
+      int rem = line->length - window->col;
+      window->cy += rem / window->width + 1;
       window->line++;
       window->col = 0;
       window->cx = 0;
@@ -132,16 +134,15 @@ static void move_cursor_down(qedit_window* window) {
 }
 
 static void move_cursor_left(qedit_window* window) {
-  qstring* line = get_current_line(window);
+  // qstring* line = get_current_line(window);
 
-  short padding = window->cy < window->lines->size ? EXTRA_LINE_CHARS : 0;
   if (window->col > 0) {
     window->col--;
     cursor_left(window);
   } else {
     if (window->line > 0) {
       window->line--;
-      window->col = get_current_line(window)->length - padding;
+      window->col = get_current_line(window)->length;
       window->cx = window->col % window->width;
       window->cy--;
     }
@@ -153,12 +154,11 @@ static void move_cursor_left(qedit_window* window) {
 static void move_cursor_right(qedit_window* window) {
   qstring* line = get_current_line(window);
 
-  short padding = window->cy < window->lines->size ? EXTRA_LINE_CHARS : 0;
-  if (window->col < line->length - padding) {
+  if (window->col < line->length) {
     window->col++;
     cursor_right(window);
   } else {
-    if (window->line < window->lines->size - 1) {
+    if (window->line + 1 < window->lines->size) {
       window->line++;
       window->col = 0;
       window->cx = 0;
@@ -184,22 +184,22 @@ static void backspace(qedit_window* window) {
   qstring* line = get_current_line(window);
 
   if (window->col > 0) {
-    qstring_delete(line, window->col - 1);
     window->col--;
+    qstring_delete(line, window->col);
     cursor_left(window);
     set_cursor_pos(window);
-    printf("%s ", line->str + window->col - 1);
+    printf("%s ", line->str + window->col);
     set_cursor_pos(window);
     render_info(window);
   } else {
     if (window->line > 0) {
       window->line--;
       qstring* prev_line = get_current_line(window);
-      window->col = prev_line->length - EXTRA_LINE_CHARS;
+      window->col = max(prev_line->length, 1) - 1;
       window->cx = window->col % window->width;
       window->cy--;
-      if (line->length != 0 && strcmp(line->str, "\r") != 0 &&
-          strcmp(line->str, "\r\n") != 0) {
+      // only concat the next line if its not empty
+      if (line->length != 0) {
         qstring_concat(prev_line, line, 0);
       }
       dyn_list_remove(window->lines, window->line + 1);
@@ -250,7 +250,7 @@ void start_listener(qedit_window* window) {
         last_key = c;
         special_key(window, c);
       } else {
-        if (isalnum(c)) {
+        if (isalnum(c) || c == ' ') {
           last_key = c;
           put_character(window, c);
         }
