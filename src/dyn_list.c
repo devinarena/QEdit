@@ -34,7 +34,7 @@ void dyn_list_remove(dyn_list* list, int index) {
     return;
   }
   if (list->mem_alloc)
-    free_object(list, index);
+      (*list->free_object)(list->data[index]);
   for (int i = index; i < list->size - 1; i++) {
     list->data[i] = list->data[i + 1];
   }
@@ -44,18 +44,10 @@ void dyn_list_remove(dyn_list* list, int index) {
 void dyn_list_clear(dyn_list* list) {
   if (list->mem_alloc) {
     for (size_t i = 0; i < list->size; i++) {
-      free_object(list, i);
+      (*list->free_object)(list->data[i]);
     }
   }
   list->size = 0;
-}
-
-void free_object(dyn_list* list, int index) {
-  if (list->special_obj == QSTRING) {
-    qstring_destroy(list->data[index]);
-  } else {
-    free(list->data[index]);
-  }
 }
 
 void* dyn_list_get(dyn_list* list, int index) {
@@ -71,6 +63,6 @@ void dyn_list_set(dyn_list* list, int index, void* data) {
   }
 
   if (list->mem_alloc && index < list->size)
-    free(list, index);
+      (*list->free_object)(list->data[index]);
   list->data[index] = data;
 }

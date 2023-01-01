@@ -50,7 +50,7 @@ const char* readFile(const char* path) {
 }
 
 dyn_list* textToLines(const char* text) {
-  dyn_list* lines = new_dyn_list(1);
+  dyn_list* lines = new_dyn_list(1, (void*)qstring_destroy);
   int i = 0;
   int start = 0;
   while (text[i] != '\0') {

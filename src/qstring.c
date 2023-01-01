@@ -21,7 +21,10 @@ void insert_char(qstring* str, char c, int index) {
   if (index < 0 || index > str->length) {
     return;
   }
-  str->str = realloc(str->str, str->length + 1);
+  if (str->length == str->capacity) {
+    str->capacity *= QSTRING_GROWTH_FACTOR;
+    str->str = realloc(str->str, str->capacity);
+  }
   for (int i = str->length; i > index; i--) {
     str->str[i] = str->str[i - 1];
   }

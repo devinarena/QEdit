@@ -16,7 +16,7 @@ qedit_window* new_qedit_window(const char* filename) {
   window->cx = 0;
   window->cy = 0;
   window->scroll_y = 0;
-  window->lines = new_dyn_list(1);
+  window->lines = new_dyn_list(1, (void*)qstring_destroy);
   window->line = 0;
   window->col = 0;
   window->filename = filename;
@@ -94,7 +94,7 @@ static void move_cursor_down(qedit_window* window, qstring** line) {
     window->col += window->width;
   } else {
     if (window->line < window->lines->size - 1) {
-      window->cy++;
+      window->cy += (int)(((*line)->length - window->col) / window->width) + 1;
       window->line++;
       *line = dyn_list_get(window->lines, window->line);
       window->col = 0;
@@ -109,7 +109,12 @@ static void move_cursor_left(qedit_window* window, qstring** line) {
   short padding = window->cy < window->lines->size ? EXTRA_LINE_CHARS : 0;
   if (window->col > 0) {
     window->col--;
-    window->cx--;
+    if (window->cx > 0)
+      window->cx--;
+    else {
+      window->cy--;
+      window->cx = window->width - 1;
+    }
   } else {
     if (window->line > 0) {
       window->line--;
@@ -176,7 +181,6 @@ void start_listener(qedit_window* window) {
         }
       } else {
         if (isalnum(c)) {
-          
           putch(c);
           window->cx++;
           set_cursor_pos(window);
