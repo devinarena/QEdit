@@ -9,6 +9,7 @@
 typedef struct {
     dyn_list* lines;
     const char* filename;
+    const char* original_source;
     
     uint32_t line;
     uint32_t col;
@@ -20,7 +21,7 @@ typedef struct {
     uint32_t edit_window_height;
 } qedit_window;
 
-qedit_window* new_qedit_window(const char* filename);
+qedit_window* new_qedit_window(const char* filename, const char* source);
 void set_cursor_pos(qedit_window* window);
 void clear_window();
 void render_info(qedit_window* window);

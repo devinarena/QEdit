@@ -40,16 +40,16 @@ void qstring_append(qstring* str, char c) {
 }
 
 void qstring_concat(qstring* str, qstring* other, int free_other) {
-  if (str->length - 2 + other->length >= str->capacity) {
-    str->capacity = (str->length - 2 + other->length) * QSTRING_GROWTH_FACTOR;
+  if (str->length + other->length >= str->capacity) {
+    str->capacity = (str->length + other->length) * QSTRING_GROWTH_FACTOR;
     str->str = realloc(str->str, str->capacity + 1);
   }
 
   for (int i = 0; i < other->length; i++) {
-    str->str[str->length - 2 + i] = other->str[i];
+    str->str[str->length + i] = other->str[i];
   }
 
-  str->length += other->length - 2;
+  str->length += other->length;
   str->str[str->length] = '\0';
   if (free_other) {
     qstring_destroy(other);

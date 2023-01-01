@@ -29,6 +29,23 @@ void dyn_list_add(dyn_list* list, void* data) {
   list->data[list->size++] = data;
 }
 
+void dyn_list_insert(dyn_list* list, int index, void* data) {
+  if (index < 0 || index >= list->capacity) {
+    return;
+  }
+
+  if (list->size == list->capacity) {
+    list->capacity *= 2;
+    list->data = realloc(list->data, sizeof(void*) * list->capacity);
+  }
+
+  for (int i = list->size; i > index; i--) {
+    list->data[i] = list->data[i - 1];
+  }
+  list->data[index] = data;
+  list->size++;
+}
+
 void dyn_list_remove(dyn_list* list, int index) {
   if (index < 0 || index >= list->size) {
     return;

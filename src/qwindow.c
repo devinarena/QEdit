@@ -13,15 +13,35 @@
 // track last key
 int last_key = 0;
 
-qedit_window* new_qedit_window(const char* filename) {
+static dyn_list* text_to_lines(const char* text) {
+  dyn_list* lines = new_dyn_list(1, (void*)qstring_destroy);
+  int i = 0;
+  int start = 0;
+  while (text[i] != '\0') {
+    if (text[i] == '\n' || text[i + 1] == '\0') {
+      uint32_t length = i - start - 1 > 0 ? i - start - 1 : 0;
+      char* line = malloc(length + 1);
+      memcpy(line, text + start, length);
+      line[length] = '\0';
+      qstring* qline = qstring_new(line);
+      dyn_list_add(lines, qline);
+      start = i + 1;
+    }
+    i++;
+  }
+  return lines;
+}
+
+qedit_window* new_qedit_window(const char* filename, const char* source) {
   qedit_window* window = malloc(sizeof(qedit_window));
   window->cx = 0;
   window->cy = 0;
   window->scroll_y = 0;
-  window->lines = new_dyn_list(1, (void*)qstring_destroy);
+  window->lines = text_to_lines(source);
   window->line = 0;
   window->col = 0;
   window->filename = filename;
+  window->original_source = source;
 
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
@@ -195,7 +215,7 @@ static void backspace(qedit_window* window) {
     if (window->line > 0) {
       window->line--;
       qstring* prev_line = get_current_line(window);
-      window->col = max(prev_line->length, 1) - 1;
+      window->col = prev_line->length;
       window->cx = window->col % window->width;
       window->cy--;
       // only concat the next line if its not empty
@@ -206,6 +226,40 @@ static void backspace(qedit_window* window) {
       rerender(window);
     }
   }
+}
+
+static void delete_key(qedit_window* window) {
+  qstring* line = get_current_line(window);
+
+  if (window->col < line->length) {
+    qstring_delete(line, window->col);
+    printf("%s ", line->str + window->col);
+    set_cursor_pos(window);
+    render_info(window);
+  } else {
+    if (window->line + 1 < window->lines->size) {
+      qstring* next_line = dyn_list_get(window->lines, window->line + 1);
+      // only concat the next line if its not empty
+      if (next_line->length != 0) {
+        qstring_concat(line, next_line, 0);
+      }
+      dyn_list_remove(window->lines, window->line + 1);
+      rerender(window);
+    }
+  }
+}
+
+static void new_line(qedit_window* window) {
+  qstring* line = get_current_line(window);
+  qstring* new_line = qstring_new(line->str + window->col);
+  line->length = window->col;
+  line->str[line->length] = '\0';
+  dyn_list_insert(window->lines, window->line + 1, new_line);
+  window->line++;
+  window->col = 0;
+  window->cx = 0;
+  window->cy++;
+  rerender(window);
 }
 
 static void special_key(qedit_window* window, char c) {
@@ -226,8 +280,12 @@ static void special_key(qedit_window* window, char c) {
       move_cursor_right(window);
       break;
     }
-    case 71: {
+    case 71: {  // HOME
       rerender(window);
+      break;
+    }
+    case 83: {  // DEL
+      delete_key(window);
       break;
     }
   }
@@ -238,11 +296,21 @@ void start_listener(qedit_window* window) {
   while (running) {
     if (kbhit()) {
       char c = _getch();
+      last_key = c;
+      if (c == 'R' - 'R' + 1) {
+        // ctrl + r - reloads the file
+
+        continue;
+      }
       if (c == 27) {
         running = 0;
       }
       if (c == '\b') {
         backspace(window);
+        continue;
+      }
+      if (c == '\r') {
+        new_line(window);
         continue;
       }
       if (c == -32 || c == 224) {
@@ -251,7 +319,6 @@ void start_listener(qedit_window* window) {
         special_key(window, c);
       } else {
         if (isalnum(c) || c == ' ') {
-          last_key = c;
           put_character(window, c);
         }
       }

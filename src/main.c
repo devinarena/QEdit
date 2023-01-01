@@ -49,25 +49,6 @@ const char* readFile(const char* path) {
   return contents;
 }
 
-dyn_list* text_to_lines(const char* text) {
-  dyn_list* lines = new_dyn_list(1, (void*)qstring_destroy);
-  int i = 0;
-  int start = 0;
-  while (text[i] != '\0') {
-    if (text[i] == '\n' || text[i + 1] == '\0') {
-      uint32_t length = i - start - 1 > 0 ? i - start - 1 : 0;
-      char* line = malloc(length + 1);
-      memcpy(line, text + start, length);
-      line[length] = '\0';
-      qstring* qline = qstring_new(line);
-      dyn_list_add(lines, qline);
-      start = i + 1;
-    }
-    i++;
-  }
-  return lines;
-}
-
 int main(int argc, const char* argv[]) {
   // Check if the user provided a file to edit
   if (argc < 2) {
@@ -80,8 +61,7 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
-  qedit_window* window = new_qedit_window(argv[1]);
-  window->lines = text_to_lines(source);
+  qedit_window* window = new_qedit_window(argv[1], source);
 
   free((void*)source);
 
