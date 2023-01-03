@@ -15,11 +15,12 @@ int last_key = 0;
 
 static dyn_list* text_to_lines(const char* text) {
   dyn_list* lines = new_dyn_list(1, (void*)qstring_destroy);
+  int len = strlen(text);
   int i = 0;
   int start = 0;
-  while (text[i] != '\0') {
+  while (i < len) {
     if (text[i] == '\n' || text[i + 1] == '\0') {
-      uint32_t length = i - start - 1 > 0 ? i - start - 1 : 0;
+      uint32_t length = max(i == len - 1 ? i - start + 1 : i - start - 1, 0);
       char* line = malloc(length + 1);
       memcpy(line, text + start, length);
       line[length] = '\0';
@@ -63,16 +64,28 @@ void clear_window() {
 
 void rerender(qedit_window* window) {
   clear_window();
-  for (int col = window->scroll_y; col < window->height - 1; col++) {
-    if (col >= window->lines->size) {
-      printf("\n.");
-      continue;
+  int scroll = 0;
+  for (int i = 0; i < window->lines->size; i++) {
+    qstring* line = dyn_list_get(window->lines, i);
+    int rows = line->length / window->width + 1;
+    if (scroll + rows - 1 >= window->scroll_y &&
+        scroll <= window->scroll_y + window->edit_window_height) {
+      int start = 0;
+      if (scroll < window->scroll_y) {
+        start = (rows + scroll - window->scroll_y) * window->width;
+      }
+      int end = line->length;
+      if (scroll + rows > window->scroll_y + window->edit_window_height) {
+        end = (window->scroll_y + window->edit_window_height - scroll) *
+              window->width;
+      }
+      printf("%.*s\r\n", end - start, line->str + start);
     }
-    qstring* line = dyn_list_get(window->lines, col);
-    printf("%s", line->str);
-    if (col < window->lines->size - 1) {
-      printf("\r\n");
-    }
+    scroll += rows;
+  }
+  while (scroll < window->scroll_y + window->edit_window_height) {
+    printf("\n.");
+    scroll++;
   }
   render_info(window);
 }
@@ -86,8 +99,11 @@ void render_info(qedit_window* window) {
   set_cursor_pos(window);
 
   char info[200];
-  snprintf(info, sizeof(info), "FILE: %s --- POS: (%d, %d) --- PREV KS: %d",
-           window->filename, window->line, window->col, last_key);
+  snprintf(info, sizeof(info),
+           "FILE: %s --- POS: (%d, %d) --- PKS: %d --- SCROLL: %d --- QUIT: "
+           "CTRL+Q",
+           window->filename, window->line, window->col, last_key,
+           window->scroll_y);
 
   printf("%-*s", window->width, info);
 
@@ -118,57 +134,105 @@ static void cursor_left(qedit_window* window) {
 }
 
 static void move_cursor_up(qedit_window* window) {
+  int frr = 0;
   if (window->col >= window->width) {
+    if (window->cy == 0) {
+      window->scroll_y--;
+      frr = 1;
+    } else {
+      window->cy--;
+    }
     window->col -= window->width;
-    window->cy--;
   } else {
     if (window->line > 0) {
       window->line--;
       int length = get_current_line(window)->length;
-      window->cy -= (int)(length / window->width) + 1;
+      int dist = (int)(length / window->width) + 1;
+      if (window->cy == 0) {
+        window->scroll_y -= dist;
+        frr = 1;
+      } else {
+        window->cy -= dist;
+      }
       window->col = 0;
       window->cx = 0;
     }
   }
-  set_cursor_pos(window);
-  render_info(window);
+  if (frr)
+    rerender(window);
+  else {
+    set_cursor_pos(window);
+    render_info(window);
+  }
 }
 
 static void move_cursor_down(qedit_window* window) {
+  int frr = 0;
   qstring* line = get_current_line(window);
 
   if (window->col + window->width < line->length) {
-    window->cy++;
+    if (window->cy >= window->edit_window_height - 1) {
+      window->scroll_y++;
+      frr = 1;
+    } else {
+      window->cy++;
+    }
     window->col += window->width;
   } else {
     if (window->line < window->lines->size - 1) {
-      int rem = line->length - window->col;
-      window->cy += rem / window->width + 1;
-      window->line++;
+      if (window->cy >= window->edit_window_height - 1) {
+        window->scroll_y++;
+        int rem = line->length - window->col;
+        window->line++;
+        frr = 1;
+      } else {
+        int rem = line->length - window->col;
+        window->cy += rem / window->width + 1;
+        window->line++;
+      }
       window->col = 0;
       window->cx = 0;
     }
   }
-  set_cursor_pos(window);
-  render_info(window);
+  if (frr)
+    rerender(window);
+  else {
+    set_cursor_pos(window);
+    render_info(window);
+  }
 }
 
 static void move_cursor_left(qedit_window* window) {
   // qstring* line = get_current_line(window);
+  int frr = 0;
 
   if (window->col > 0) {
     window->col--;
+    if (window->cx == 0 && window->cy == 0) {
+      window->scroll_y--;
+      frr = 1;
+    }
     cursor_left(window);
   } else {
     if (window->line > 0) {
       window->line--;
       window->col = get_current_line(window)->length;
       window->cx = window->col % window->width;
-      window->cy--;
+      if (window->cy == 0) {
+        window->scroll_y--;
+        frr = 1;
+      }
+      else {
+        window->cy--;
+      }
     }
   }
-  set_cursor_pos(window);
-  render_info(window);
+  if (frr)
+    rerender(window);
+  else {
+    set_cursor_pos(window);
+    render_info(window);
+  }
 }
 
 static void move_cursor_right(qedit_window* window) {
@@ -178,12 +242,8 @@ static void move_cursor_right(qedit_window* window) {
     window->col++;
     cursor_right(window);
   } else {
-    if (window->line + 1 < window->lines->size) {
-      window->line++;
-      window->col = 0;
-      window->cx = 0;
-      window->cy++;
-    }
+    move_cursor_down(window);
+    return;
   }
   set_cursor_pos(window);
   render_info(window);
@@ -292,18 +352,25 @@ static void special_key(qedit_window* window, char c) {
 }
 
 void start_listener(qedit_window* window) {
-  int running = 1;
-  while (running) {
+  while (1) {
     if (kbhit()) {
       char c = _getch();
       last_key = c;
-      if (c == 'R' - 'R' + 1) {
+      if (c == 'R' - 'A' + 1) {
         // ctrl + r - reloads the file
-
+        window->lines = text_to_lines(window->original_source);
+        window->line = 0;
+        window->cx = 0;
+        window->cy = 0;
+        rerender(window);
         continue;
       }
-      if (c == 27) {
-        running = 0;
+      if (c == 'W' - 'A' + 1) {
+        // ctrl + w - exit the editor without saving
+        system("cls");
+        printf("QEdit: Exiting without saving...\n");
+        exit(0);
+        continue;
       }
       if (c == '\b') {
         backspace(window);

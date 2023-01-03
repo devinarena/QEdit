@@ -63,13 +63,12 @@ int main(int argc, const char* argv[]) {
 
   qedit_window* window = new_qedit_window(argv[1], source);
 
-  free((void*)source);
-
   rerender(window);
   set_cursor_pos(window);
 
   start_listener(window);
 
+  free((void*)source);
   destroy_qedit_window(window);
 
   return 0;
